@@ -2,6 +2,7 @@ import json, time
 
 from llama_cpp import Llama
 from llama_cpp.llama_chat_format import MiniCPMv26ChatHandler
+from loguru import logger
 from typing import Optional
 
 
@@ -41,6 +42,7 @@ class LlamaCpp:
         else:
             content_image = None
 
+        t0 = time.time()
         llm_response = self._model.create_chat_completion(
             messages=[{
                 "role": "user",
@@ -52,4 +54,5 @@ class LlamaCpp:
             response_format={"type": "json_object"},
             **parameters
         )
+        logger.info(f"Inference duration was {time.time() - t0} sec.")
         return json.loads(llm_response["choices"][0]["message"]["content"])

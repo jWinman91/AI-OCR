@@ -4,6 +4,7 @@ import importlib
 import yaml
 
 from PIL import Image
+from loguru import logger
 
 
 class OcrModelling:
@@ -43,7 +44,7 @@ class OcrModelling:
             try:
                 data = yaml.safe_load(b)
             except yaml.YAMLError as err:
-                print(err)
+                logger.error(err)
         return data
 
     # Function to encode the image
@@ -54,18 +55,23 @@ class OcrModelling:
 
     def enhance_prompt(self, prompt: str) -> str:
         parameters = {"temperature": 0}
-        list_of_names = self._model.predict(self.ENHANCE_PROMPT_PROMPT.format(prompt), parameters=parameters)["namen"]
-        json_ausdruck = "{" + ", ".join(f'"{name}": Wert' for name in list_of_names) + "}"
+        list_of_names = self._model.predict(self.ENHANCE_PROMPT_PROMPT.format(input=prompt),
+                                            parameters=parameters)["namen"]
+        json_ausdruck = "{" + ", ".join(f'"{name}": "zahl"' for name in list_of_names) + "}"
 
-        return self.PROMPT_TEMPLATE.format(prompt, json_ausdruck)
+        logger.info(f"json of value names: {json_ausdruck}")
+
+        return self.PROMPT_TEMPLATE.format(prompt=prompt, json_ausdruck=json_ausdruck)
 
     def run_ocr(self, prompt: str, image_path: str, parameters: dict) -> dict:
         image = self._encode_image(image_path)
 
         ocr_dict = self._model.predict(prompt, image=image, parameters=parameters)
 
+        logger.info(ocr_dict)
+
         creation_date = Image.open(image_path)._getexif()[36867]
-        ocr_dict["creation_date"] = datetime.datetime.strftime(creation_date, "%Y:%m:%d %H:%M:%S")
+        ocr_dict["creation_date"] = datetime.datetime.strptime(creation_date, "%Y:%m:%d %H:%M:%S")
 
         return ocr_dict
 

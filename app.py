@@ -2,7 +2,8 @@ import subprocess, uvicorn, os, argparse, glob
 
 from collections import OrderedDict
 from huggingface_hub import hf_hub_download, snapshot_download
-from fastapi import FastAPI, HTTPException, Body, UploadFile
+from loguru import logger
+from fastapi import FastAPI, HTTPException, Body, UploadFile, File, Form
 from typing import List, Annotated
 
 from src.ocr_modelling import OcrModelling
@@ -31,8 +32,11 @@ class App:
         )
         self._model_db = CouchDBHandler("config_models")
         self._unmodified_model_db = CouchDBHandler("unmodified_config_models")
+
+        #caching
         self._ocr_model_cache = OrderedDict()
         self._prompt_cache = OrderedDict()
+        self._images = OrderedDict()
 
         self._configure_routes()
 
@@ -51,8 +55,10 @@ class App:
         config_dict["clip_model_path"] = f"models/{repo_id}/{clip_model_name}"
 
         subprocess.call(f"mkdir -p models/{repo_id}", shell=True)
-        hf_hub_download(repo_id=repo_id, filename=file_name, local_dir=config_dict["model_path"])
-        hf_hub_download(repo_id=repo_id, filename=clip_model_name, local_dir=config_dict["model_path"])
+        hf_hub_download(repo_id=repo_id, filename=file_name, local_dir=f"models/{repo_id}")
+        hf_hub_download(repo_id=repo_id, filename=clip_model_name, local_dir=f"models/{repo_id}")
+
+        logger.info(f"Finished downloading model {config_dict['model_path']}.")
 
     @staticmethod
     async def _save_image(image_file: UploadFile) -> str:
@@ -73,19 +79,19 @@ class App:
 
         @self._app.post("/insert_model")
         async def insert_model(model_config: Annotated[ConfigModel, Body(
-            examples={
+            examples=[{
                 "model_name": "MiniCPM-v-2_6",
                 "config_dict": {
                     "model_wrapper": "llama_cpp",
                     "repo_id": "openbmb/MiniCPM-V-2_6-gguf",
-                    "file_name": "test",
-                    "clip_model_name": "test",
+                    "file_name": "ggml-model-Q4_K.gguf",
+                    "clip_model_name": "mmproj-model-f16.gguf",
                     "construct_params": {
                         "n_ctx": 2048,
                         "n_gpu_layers": -1
                     },
                 }
-            },
+            }],
         )]
                                ) -> bool:
             """
@@ -100,6 +106,8 @@ class App:
             if model_config.config_dict["model_wrapper"] != "openai":
                 self._download_model(model_config.config_dict)
             getattr(self._model_db, method)(model_config.config_dict, model_config.model_name)
+
+            logger.info(f"Finished {method} the model {model_config.model_name}.")
 
             return True
 
@@ -120,6 +128,8 @@ class App:
                 self._unmodified_model_db.delete_config(config_name)
                 self._ocr_model_cache.pop(config_name, None)
 
+                logger.info(f"Deleted model {config_name}.")
+
             return True
 
         @self._app.get("/get_all_unmodified_models")
@@ -137,11 +147,32 @@ class App:
 
             return config
 
-        @self._app.post("/recognize_values")
-        async def recognize_values(input_json: Prompt,
-                                   image: UploadFile,
-                                   ) -> dict:
+        @self._app.post("/upload_images")
+        async def upload_images(images: List[UploadFile]) -> None:
+            """
 
+            :param images:
+            :return:
+            """
+            for image in images:
+                self._images[image.filename] = await self._save_image(image)
+                logger.info(f"Image {image.filename} was saved in {self._images[image.filename]}.")
+
+            return True
+
+        @self._app.post("/recognize_values")
+        async def recognize_values(input_json: Annotated[Prompt, Body(
+            examples=[{
+                "prompt": "",
+                "model_name": "MiniCPM-v-2_6",
+                "parameters": {
+                    "temperature": 0,
+                    "top_p": 0.1
+                }
+            }]
+        )],
+                                   image_name: str
+                                   ) -> dict:
             config_dict = self._model_db.get_config(input_json.model_name)
             ocr_model = self._ocr_model_cache.get(input_json.model_name, None)
             prompt = self._prompt_cache.get(input_json.prompt, None)
@@ -149,10 +180,18 @@ class App:
             if ocr_model is None:
                 ocr_model = OcrModelling(config_dict)
                 self._ocr_model_cache[input_json.model_name] = ocr_model
+                logger.info(f"Saved {input_json.model_name} in cache.")
+            else:
+                logger.info(f"Retrieved {input_json.model_name} from cache.")
 
             if prompt is None:
                 prompt = ocr_model.enhance_prompt(input_json.prompt)
                 self._prompt_cache[input_json.prompt] = prompt
+                logger.info(f"Saved prompt in cache.")
+            else:
+                logger.info(f"Retrieved prompt from cache.")
+
+            ocr_dict = ocr_model.run_ocr(prompt, self._images[image_name], input_json.parameters)
 
             if len(self._ocr_model_cache) > 2:
                 self._ocr_model_cache.popitem(last=False)
@@ -160,13 +199,8 @@ class App:
             if len(self._prompt_cache) > 10:
                 self._prompt_cache.popitem(last=False)
 
-            if len(glob.glob("tmp/*")) > 10:
-                subprocess.call("rm -r tmp")
-
-            ocr_dict = ocr_model.run_ocr(prompt, self._save_image(image), prompt.parameters)
-
-            if len(glob.glob("tmp/*")) > 10:
-                subprocess.call("rm -r tmp")
+            subprocess.call(f"rm {self._images[image_name]}", shell=True)
+            _ = self._images.pop(image_name)
 
             return ocr_dict
 
@@ -176,6 +210,7 @@ class App:
         :return: None
         """
         uvicorn.run(self._app, host=self._ip, port=self._port)
+        subprocess.call("rm -r tmp", shell=True)
 
 
 if __name__ == '__main__':

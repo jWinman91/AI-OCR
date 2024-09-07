@@ -103,10 +103,17 @@ class App:
             method = "add_config" if model_config.model_name not in all_config_names else "update_config"
 
             getattr(self._unmodified_model_db, method)(model_config.config_dict, model_config.model_name)
-            if model_config.config_dict["model_wrapper"] != "openai":
-                self._download_model(model_config.config_dict)
-            getattr(self._model_db, method)(model_config.config_dict, model_config.model_name)
+            _ = model_config.config_dict.pop("_rev", None)
 
+            try:
+                if model_config.config_dict["model_wrapper"] != "open_ai":
+                    self._download_model(model_config.config_dict)
+            except Exception as e:
+                self._unmodified_model_db.delete_config(model_config.model_name)
+                logger.error(e)
+                RuntimeError("Something went wrong during the download.")
+
+            getattr(self._model_db, method)(model_config.config_dict, model_config.model_name)
             logger.info(f"Finished {method} the model {model_config.model_name}.")
 
             return True

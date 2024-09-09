@@ -77,6 +77,11 @@ class App:
         :return: None
         """
 
+        @self._app.get("/get_all_model_wrapper")
+        async def get_all_model_wrapper() -> List[str]:
+            model_wrapper_paths = glob.glob("src/model_wrapper/*.py")
+            return list(map(lambda path: path.split("/")[-1].split(".")[0], model_wrapper_paths))
+
         @self._app.post("/insert_model")
         async def insert_model(model_config: Annotated[ConfigModel, Body(
             examples=[{
@@ -139,8 +144,9 @@ class App:
             """
             for config_name in config_names:
                 config = self._model_db.get_config(config_name)
-                subprocess.call(f"rm {config['model_path']}", shell=True)
-                subprocess.call(f"rm {config['clip_model_path']}", shell=True)
+                if config["model_wrapper"] != "open_ai":
+                    subprocess.call(f"rm {config['model_path']}", shell=True)
+                    subprocess.call(f"rm {config['clip_model_path']}", shell=True)
                 self._model_db.delete_config(config_name)
                 self._unmodified_model_db.delete_config(config_name)
                 self._ocr_model_cache.pop(config_name, None)

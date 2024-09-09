@@ -12,10 +12,10 @@ class OcrModelling:
     Extrahiere alle Namen von Messgrößen aus dem folgenden Text.
     Gib das Ergebnis im json-Format zurück {{"namen": ["liste von namen"]}}.
     
-    Input: Lese den Zählerstand des abgebildeten Drehstromzählers ab.
+    Input: "Lese den Zählerstand des abgebildeten Drehstromzählers ab."
     Output: {{"namen": ["zählerstand"]}}
     
-    Input: {input}
+    Input: "{input}"
     Output:
     """
     PROMPT_TEMPLATE = """
@@ -67,11 +67,12 @@ class OcrModelling:
         image = self._encode_image(image_path)
 
         ocr_dict = self._model.predict(prompt, image=image, parameters=parameters)
-
+        ocr_dict["image_name"] = image_path.split("/")[1]
         logger.info(ocr_dict)
 
-        creation_date = Image.open(image_path)._getexif()[36867]
-        ocr_dict["creation_date"] = datetime.datetime.strptime(creation_date, "%Y:%m:%d %H:%M:%S")
+        exif = Image.open(image_path)._getexif()
+        if exif is not None and len(exif) > 36867:
+            ocr_dict["creation_date"] = datetime.datetime.strptime(exif[36867], "%Y:%m:%d %H:%M:%S")
 
         return ocr_dict
 

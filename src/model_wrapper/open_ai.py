@@ -7,7 +7,7 @@ from typing import Optional
 
 class OpenAi:
     def __init__(self, config_dict: dict):
-        self._client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+        self._client = OpenAI(api_key=config_dict["openai_api_key"])
         self._model_name = config_dict["model_name"]
 
     def predict(self, text: str, image: Optional[object] = None, parameters: Optional[dict] = None):

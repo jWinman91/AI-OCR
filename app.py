@@ -102,12 +102,22 @@ class App:
             all_config_names = self._unmodified_model_db.get_all_config_names()
             method = "add_config" if model_config.model_name not in all_config_names else "update_config"
 
+            if model_config.config_dict["model_wrapper"] == "open_ai":
+                openai_api_key = model_config.config_dict.pop("openai_api_key", None)
+            else:
+                openai_api_key = None
+
             getattr(self._unmodified_model_db, method)(model_config.config_dict, model_config.model_name)
             _ = model_config.config_dict.pop("_rev", None)
 
             try:
-                if model_config.config_dict["model_wrapper"] != "open_ai":
+                if model_config.config_dict["model_wrapper"] == "open_ai":
+                    if openai_api_key is None:
+                        raise RuntimeError("No API key provided!")
+                    model_config.config_dict["openai_api_key"] = openai_api_key
+                else:
                     self._download_model(model_config.config_dict)
+
             except Exception as e:
                 self._unmodified_model_db.delete_config(model_config.model_name)
                 logger.error(e)
@@ -155,12 +165,14 @@ class App:
             return config
 
         @self._app.post("/upload_images")
-        async def upload_images(images: List[UploadFile]) -> None:
+        async def upload_images(images: List[UploadFile]) -> bool:
             """
 
             :param images:
             :return:
             """
+            subprocess.call("rm -r tmp", shell=True)
+
             for image in images:
                 self._images[image.filename] = await self._save_image(image)
                 logger.info(f"Image {image.filename} was saved in {self._images[image.filename]}.")

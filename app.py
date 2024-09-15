@@ -7,7 +7,7 @@ from fastapi import FastAPI, HTTPException, Body, UploadFile, File, Form
 from typing import List, Annotated
 
 from src.ocr_modelling import OcrModelling
-from src.handler.couch_db_handler import CouchDBHandler
+from src.handler.sqlite_db_handler import SqliteDBHandler
 from src.utils.api_models import ConfigModel, Prompt
 
 
@@ -30,8 +30,8 @@ class App:
             title="AI-OCR: Extracting data from images via GPT_4 or models from Huggingface 🤗",
             description=DESCRIPTION
         )
-        self._model_db = CouchDBHandler("config_models")
-        self._unmodified_model_db = CouchDBHandler("unmodified_config_models")
+        self._model_db = SqliteDBHandler("config_models")
+        self._unmodified_model_db = SqliteDBHandler("unmodified_config_models")
 
         #caching
         self._ocr_model_cache = OrderedDict()

@@ -16,8 +16,11 @@ class LlamaCpp:
         """
         construct_params = config_dict.get("construct_params", {})
 
-        chat_handler = MiniCPMv26ChatHandler(clip_model_path=config_dict.get("clip_model_path"))
-        self._model = Llama(model_path=config_dict.get("model_path"), chat_handler=chat_handler, **construct_params)
+        if config_dict.get("clip_model_path", None) is not None:
+            chat_handler = MiniCPMv26ChatHandler(clip_model_path=config_dict.get("clip_model_path"))
+            construct_params["chat_handler"] = chat_handler
+
+        self._model = Llama(model_path=config_dict.get("model_path"), **construct_params)
 
     def predict(self, text: str, image: Optional[object] = None, parameters: Optional[dict] = None):
         """

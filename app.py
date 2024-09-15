@@ -7,7 +7,7 @@ from fastapi import FastAPI, HTTPException, Body, UploadFile, File, Form
 from typing import List, Annotated
 
 from src.ocr_modelling import OcrModelling
-from src.handler.couch_db_handler import CouchDBHandler
+from src.handler.sqlite_db_handler import SqliteDBHandler
 from src.utils.api_models import ConfigModel, Prompt
 
 
@@ -30,8 +30,8 @@ class App:
             title="AI-OCR: Extracting data from images via GPT_4 or models from Huggingface 🤗",
             description=DESCRIPTION
         )
-        self._model_db = CouchDBHandler("config_models")
-        self._unmodified_model_db = CouchDBHandler("unmodified_config_models")
+        self._model_db = SqliteDBHandler("config_models")
+        self._unmodified_model_db = SqliteDBHandler("unmodified_config_models")
 
         #caching
         self._ocr_model_cache = OrderedDict()
@@ -49,14 +49,15 @@ class App:
         """
         repo_id = config_dict.pop("repo_id")
         file_name = config_dict.pop("file_name")
-        clip_model_name = config_dict.pop("clip_model_name")
-
-        config_dict["model_path"] = f"models/{repo_id}/{file_name}"
-        config_dict["clip_model_path"] = f"models/{repo_id}/{clip_model_name}"
+        clip_model_name = config_dict.pop("clip_model_name", None)
 
         subprocess.call(f"mkdir -p models/{repo_id}", shell=True)
         hf_hub_download(repo_id=repo_id, filename=file_name, local_dir=f"models/{repo_id}")
-        hf_hub_download(repo_id=repo_id, filename=clip_model_name, local_dir=f"models/{repo_id}")
+
+        config_dict["model_path"] = f"models/{repo_id}/{file_name}"
+        if clip_model_name is not None:
+            config_dict["clip_model_path"] = f"models/{repo_id}/{clip_model_name}"
+            hf_hub_download(repo_id=repo_id, filename=clip_model_name, local_dir=f"models/{repo_id}")
 
         logger.info(f"Finished downloading model {config_dict['model_path']}.")
 

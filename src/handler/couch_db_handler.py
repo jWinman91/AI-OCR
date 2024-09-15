@@ -2,9 +2,10 @@ import couchdb
 import json
 
 from typing import List
+from src.handler.db_handler import DBHandler
 
 
-class CouchDBHandler:
+class CouchDBHandler(DBHandler):
     def __init__(self, table_name: str) -> None:
         """
         Builds the CouchDBHandler Object
@@ -18,6 +19,8 @@ class CouchDBHandler:
         else:
             self._db_table = couch.create(table_name)
 
+        super().__init__(table_name)
+
     def get_table_name(self) -> str:
         """
         Returns table name
@@ -25,7 +28,7 @@ class CouchDBHandler:
         """
         return self._db_table.name
 
-    def add_config(self, config_dict: dict, config_name: str) -> None:
+    def add_config(self, config_dict: dict, config_name: str) -> bool:
         """
         Add a config to the DB Table
         :param config_dict: dictionary with the config
@@ -37,8 +40,9 @@ class CouchDBHandler:
             raise Exception(f"{config_name} already exists!")
         else:
             self._db_table.save(config_dict)
+        return True
 
-    def update_config(self, config_dict: dict, config_name: str) -> None:
+    def update_config(self, config_dict: dict, config_name: str) -> bool:
         """
         Update a config
         :param config_dict: a dictionary with the config
@@ -48,8 +52,9 @@ class CouchDBHandler:
         self.delete_config(config_name)
         config_dict["_id"] = config_name
         self._db_table.save(config_dict)
+        return True
 
-    def delete_config(self, config_name) -> None:
+    def delete_config(self, config_name) -> bool:
         """
         Delet a config from the DB
         :param config_name: a config name
@@ -59,6 +64,7 @@ class CouchDBHandler:
             raise Exception(f"{config_name} does not exist!")
         config_dict = self.get_config(config_name)
         self._db_table.delete(config_dict)
+        return True
 
     def get_config(self, config_name) -> dict:
         """

@@ -6,6 +6,7 @@ import sys
 sys.path.append("../..")
 
 from typing import List
+from loguru import logger
 from src.handler.db_handler import DBHandler
 
 
@@ -59,13 +60,13 @@ class SqliteDBHandler(DBHandler):
             cursor.execute(query)
             con.commit()
         except sqlite3.OperationalError as e:
-            print(f"OperationalError aufgetreten: {e}")
+            logger.error(f"OperationalError aufgetreten: {e}")
             return False
         except sqlite3.DatabaseError as e:
-            print(f"DatabaseError aufgetreten: {e}")
+            logger.error(f"DatabaseError aufgetreten: {e}")
             return False
         except Exception as e:
-            print(f"Unerwarteter Fehler aufgetreten: {e}")
+            logger.error(f"Unerwarteter Fehler aufgetreten: {e}")
             return False
         finally:
             if cursor:
@@ -82,13 +83,13 @@ class SqliteDBHandler(DBHandler):
             cursor.execute(query, (config_name.lower(),))
             result = cursor.fetchone()
         except sqlite3.OperationalError as e:
-            print(f"OperationalError aufgetreten: {e}")
+            logger.error(f"OperationalError aufgetreten: {e}")
             return {}
         except sqlite3.DatabaseError as e:
-            print(f"DatabaseError aufgetreten: {e}")
+            logger.error(f"DatabaseError aufgetreten: {e}")
             return {}
         except Exception as e:
-            print(f"Unerwarteter Fehler aufgetreten: {e}")
+            logger.error(f"Unerwarteter Fehler aufgetreten: {e}")
             return {}
         finally:
             if cursor:
@@ -113,13 +114,13 @@ class SqliteDBHandler(DBHandler):
             cursor.execute(query, (config_name.lower(), json.dumps(config_dict)), )
             con.commit()
         except sqlite3.OperationalError as e:
-            print(f"OperationalError aufgetreten: {e}")
+            logger.error(f"OperationalError aufgetreten: {e}")
             return False
         except sqlite3.DatabaseError as e:
-            print(f"DatabaseError aufgetreten: {e}")
+            logger.error(f"DatabaseError aufgetreten: {e}")
             return False
         except Exception as e:
-            print(f"Unerwarteter Fehler aufgetreten: {e}")
+            logger.error(f"Unerwarteter Fehler aufgetreten: {e}")
             return False
         finally:
             if cursor:
@@ -142,13 +143,13 @@ class SqliteDBHandler(DBHandler):
             if result is None:
                 return False
         except sqlite3.OperationalError as e:
-            print(f"OperationalError aufgetreten: {e}")
+            logger.error(f"OperationalError aufgetreten: {e}")
             return False  # return an Error
         except sqlite3.DatabaseError as e:
-            print(f"DatabaseError aufgetreten: {e}")
+            logger.error(f"DatabaseError aufgetreten: {e}")
             return False  # return an Error
         except Exception as e:
-            print(f"Unerwarteter Fehler aufgetreten: {e}")
+            logger.error(f"Unerwarteter Fehler aufgetreten: {e}")
             return False  # return an Error
         finally:
             if cursor:
@@ -184,13 +185,13 @@ class SqliteDBHandler(DBHandler):
             cursor.execute(query, (result, config_name.lower(),))
             con.commit()
         except sqlite3.OperationalError as e:
-            print(f"OperationalError aufgetreten: {e}")
+            logger.error(f"OperationalError aufgetreten: {e}")
             return False
         except sqlite3.DatabaseError as e:
-            print(f"DatabaseError aufgetreten: {e}")
+            logger.error(f"DatabaseError aufgetreten: {e}")
             return False
         except Exception as e:
-            print(f"Unerwarteter Fehler aufgetreten: {e}")
+            logger.error(f"Unerwarteter Fehler aufgetreten: {e}")
             return False
         finally:
             if cursor:
@@ -207,13 +208,13 @@ class SqliteDBHandler(DBHandler):
             cursor.execute(query, (config_name.lower(),))
             con.commit()
         except sqlite3.OperationalError as e:
-            print(f"OperationalError aufgetreten: {e}")
+            logger.error(f"OperationalError aufgetreten: {e}")
             return False
         except sqlite3.DatabaseError as e:
-            print(f"DatabaseError aufgetreten: {e}")
+            logger.error(f"DatabaseError aufgetreten: {e}")
             return False
         except Exception as e:
-            print(f"Unerwarteter Fehler aufgetreten: {e}")
+            logger.error(f"Unerwarteter Fehler aufgetreten: {e}")
             return False
         finally:
             if cursor:
@@ -230,13 +231,13 @@ class SqliteDBHandler(DBHandler):
             cursor.execute(query)
             results = cursor.fetchall()
         except sqlite3.OperationalError as e:
-            print(f"OperationalError aufgetreten: {e}")
+            logger.error(f"OperationalError aufgetreten: {e}")
             return []
         except sqlite3.DatabaseError as e:
-            print(f"DatabaseError aufgetreten: {e}")
+            logger.error(f"DatabaseError aufgetreten: {e}")
             return []
         except Exception as e:
-            print(f"Unerwarteter Fehler aufgetreten: {e}")
+            logger.error(f"Unerwarteter Fehler aufgetreten: {e}")
             return []
         finally:
             if cursor:

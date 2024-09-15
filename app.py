@@ -49,14 +49,15 @@ class App:
         """
         repo_id = config_dict.pop("repo_id")
         file_name = config_dict.pop("file_name")
-        clip_model_name = config_dict.pop("clip_model_name")
-
-        config_dict["model_path"] = f"models/{repo_id}/{file_name}"
-        config_dict["clip_model_path"] = f"models/{repo_id}/{clip_model_name}"
+        clip_model_name = config_dict.pop("clip_model_name", None)
 
         subprocess.call(f"mkdir -p models/{repo_id}", shell=True)
         hf_hub_download(repo_id=repo_id, filename=file_name, local_dir=f"models/{repo_id}")
-        hf_hub_download(repo_id=repo_id, filename=clip_model_name, local_dir=f"models/{repo_id}")
+
+        config_dict["model_path"] = f"models/{repo_id}/{file_name}"
+        if clip_model_name is not None:
+            config_dict["clip_model_path"] = f"models/{repo_id}/{clip_model_name}"
+            hf_hub_download(repo_id=repo_id, filename=clip_model_name, local_dir=f"models/{repo_id}")
 
         logger.info(f"Finished downloading model {config_dict['model_path']}.")
 

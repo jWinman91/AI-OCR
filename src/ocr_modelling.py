@@ -26,12 +26,9 @@ class OcrModelling:
     Bevor du das Ergebnis ausgibst, stelle sicher, dass der Wert korrekt ist und vollständig erfasst wird.
     """
 
-    def __init__(self, config_dict: dict) -> None:
-        module_name = config_dict.get("model_wrapper")
-        class_name = "".join(x.capitalize() for x in module_name.split("_"))
-        module = importlib.import_module(f"src.model_wrapper.{module_name}")
-
-        self._model = getattr(module, class_name)(config_dict)
+    def __init__(self, model: object, llm_model: object) -> None:
+        self._model = model
+        self._llm_model = llm_model
 
     @staticmethod
     def load_yml(configfile: str) -> dict:
@@ -55,8 +52,8 @@ class OcrModelling:
 
     def enhance_prompt(self, prompt: str) -> str:
         parameters = {"temperature": 0}
-        list_of_names = self._model.predict(self.ENHANCE_PROMPT_PROMPT.format(input=prompt),
-                                            parameters=parameters)["namen"]
+        list_of_names = self._llm_model.predict(self.ENHANCE_PROMPT_PROMPT.format(input=prompt),
+                                                parameters=parameters)["namen"]
         json_ausdruck = "{" + ", ".join(f'"{name}": "zahl"' for name in list_of_names) + "}"
 
         logger.info(f"json of value names: {json_ausdruck}")

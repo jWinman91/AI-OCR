@@ -1,4 +1,4 @@
-import subprocess, uvicorn, os, argparse, glob
+import subprocess, uvicorn, os, argparse, glob, importlib
 
 from collections import OrderedDict
 from huggingface_hub import hf_hub_download, snapshot_download
@@ -33,12 +33,37 @@ class App:
         self._model_db = SqliteDBHandler("config_models")
         self._unmodified_model_db = SqliteDBHandler("unmodified_config_models")
 
-        #caching
+        # caching
         self._ocr_model_cache = OrderedDict()
         self._prompt_cache = OrderedDict()
         self._images = OrderedDict()
 
+        # instantiate LLM for prompt optimisation
+        llm_config = {
+            "model_name": "gemma-2-9b-it-gguf",
+            "config_dict": {
+                "model_wrapper": "llama_cpp",
+                "repo_id": "bartowski/gemma-2-9b-it-GGUF",
+                "file_name": "gemma-2-9b-it-Q4_K_M.gguf",
+                "construct_params": {
+                    "n_ctx": 2048,
+                    "n_gpu_layers": -1
+                }
+            },
+        }
+        self._llm_model_name = llm_config["model_name"]
+        self._download_model(llm_config["config_dict"])
+        self._ocr_model_cache[self._llm_model_name] = self._instantiate_model(llm_config["config_dict"])
+
         self._configure_routes()
+
+    @staticmethod
+    def _instantiate_model(config_dict: dict) -> object:
+        module_name = config_dict.get("model_wrapper")
+        class_name = "".join(x.capitalize() for x in module_name.split("_"))
+        module = importlib.import_module(f"src.model_wrapper.{module_name}")
+
+        return getattr(module, class_name)(config_dict)
 
     @staticmethod
     def _download_model(config_dict: dict) -> None:
@@ -123,7 +148,6 @@ class App:
                     model_config.config_dict["openai_api_key"] = openai_api_key
                 else:
                     self._download_model(model_config.config_dict)
-
             except Exception as e:
                 self._unmodified_model_db.delete_config(model_config.model_name)
                 logger.error(e)
@@ -200,15 +224,19 @@ class App:
                                    image_name: str
                                    ) -> dict:
             config_dict = self._model_db.get_config(input_json.model_name)
-            ocr_model = self._ocr_model_cache.get(input_json.model_name, None)
+            model = self._ocr_model_cache.get(input_json.model_name, None)
+            llm_model = self._ocr_model_cache.get(self._llm_model_name)
             prompt = self._prompt_cache.get(input_json.prompt, None)
 
-            if ocr_model is None:
-                ocr_model = OcrModelling(config_dict)
-                self._ocr_model_cache[input_json.model_name] = ocr_model
+            if model is None:
+                model = self._instantiate_model(config_dict)
+                self._ocr_model_cache[input_json.model_name] = model
                 logger.info(f"Saved {input_json.model_name} in cache.")
             else:
                 logger.info(f"Retrieved {input_json.model_name} from cache.")
+
+            # instantiate ocr model
+            ocr_model = OcrModelling(model, llm_model)
 
             if prompt is None:
                 prompt = ocr_model.enhance_prompt(input_json.prompt)

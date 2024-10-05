@@ -1,48 +1,17 @@
 import base64
 import datetime
-import importlib
-import yaml
 
 from PIL import Image
 from loguru import logger
 
 
 class OcrModelling:
-    ENHANCE_PROMPT_PROMPT = """
-    Extrahiere alle Namen von Messgrößen aus dem folgenden Text.
-    Gib das Ergebnis im json-Format zurück {{"namen": ["liste von namen"]}}.
-    
-    Input: "Lese den Zählerstand des abgebildeten Drehstromzählers ab."
-    Output: {{"namen": ["zählerstand"]}}
-    
-    Input: "{input}"
-    Output:
-    """
-    PROMPT_TEMPLATE = """
-    {prompt}
-    
-    Gib das Ergebnis als JSON-Ausdruck in folgenden Format wider:
-    {json_ausdruck}.
-    Bevor du das Ergebnis ausgibst, stelle sicher, dass der Wert korrekt ist und vollständig erfasst wird.
-    """
-
-    def __init__(self, model: object, llm_model: object) -> None:
+    def __init__(self, model: object, llm_model: object, prompts: dict) -> None:
         self._model = model
         self._llm_model = llm_model
-
-    @staticmethod
-    def load_yml(configfile: str) -> dict:
-        """
-        Imports a YAML Configuration file
-        :param configfile: Path to the YAML config file.
-        :return: A dictionary containing the configuration data.
-        """
-        with open(configfile, "r") as b:
-            try:
-                data = yaml.safe_load(b)
-            except yaml.YAMLError as err:
-                logger.error(err)
-        return data
+        self.ENHANCE_PROMPT_PROMPT = prompts["enhance_prompt"]
+        self.PROMPT_TEMPLATE = prompts["template"]
+        print(self.PROMPT_TEMPLATE)
 
     # Function to encode the image
     @staticmethod
@@ -50,8 +19,7 @@ class OcrModelling:
         with open(image_path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode('utf-8')
 
-    def enhance_prompt(self, prompt: str) -> str:
-        parameters = {"temperature": 0}
+    def enhance_prompt(self, prompt: str, parameters: dict) -> str:
         list_of_names = self._llm_model.predict(self.ENHANCE_PROMPT_PROMPT.format(input=prompt),
                                                 parameters=parameters)["namen"]
         json_ausdruck = "{" + ", ".join(f'"{name}": "zahl"' for name in list_of_names) + "}"

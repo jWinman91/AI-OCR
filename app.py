@@ -1,4 +1,4 @@
-import subprocess, uvicorn, os, argparse, glob, importlib
+import subprocess, uvicorn, os, argparse, glob, importlib, yaml
 
 from collections import OrderedDict
 from huggingface_hub import hf_hub_download, snapshot_download
@@ -38,24 +38,33 @@ class App:
         self._prompt_cache = OrderedDict()
         self._images = OrderedDict()
 
+        config = self.load_yml("configs/startup_params.yaml")
+        self._cache = config["cache"]
+        self._prompts = config["prompts"]
+
         # instantiate LLM for prompt optimisation
-        llm_config = {
-            "model_name": "gemma-2-9b-it-gguf",
-            "config_dict": {
-                "model_wrapper": "llama_cpp",
-                "repo_id": "bartowski/gemma-2-9b-it-GGUF",
-                "file_name": "gemma-2-9b-it-Q4_K_M.gguf",
-                "construct_params": {
-                    "n_ctx": 2048,
-                    "n_gpu_layers": -1
-                }
-            },
-        }
+        llm_config = config["llm_configs"]
+        self._predict_params = llm_config["predict_params"]
+
         self._llm_model_name = llm_config["model_name"]
         self._download_model(llm_config["config_dict"])
         self._ocr_model_cache[self._llm_model_name] = self._instantiate_model(llm_config["config_dict"])
 
         self._configure_routes()
+
+    @staticmethod
+    def load_yml(configfile: str) -> dict:
+        """
+        Imports a YAML Configuration file
+        :param configfile: Path to the YAML config file.
+        :return: A dictionary containing the configuration data.
+        """
+        with open(configfile, "r") as b:
+            try:
+                data = yaml.safe_load(b)
+            except yaml.YAMLError as err:
+                logger.error(err)
+        return data
 
     @staticmethod
     def _instantiate_model(config_dict: dict) -> object:
@@ -236,10 +245,10 @@ class App:
                 logger.info(f"Retrieved {input_json.model_name} from cache.")
 
             # instantiate ocr model
-            ocr_model = OcrModelling(model, llm_model)
+            ocr_model = OcrModelling(model, llm_model, self._prompts)
 
             if prompt is None:
-                prompt = ocr_model.enhance_prompt(input_json.prompt)
+                prompt = ocr_model.enhance_prompt(input_json.prompt, self._predict_params)
                 self._prompt_cache[input_json.prompt] = prompt
                 logger.info(f"Saved prompt in cache.")
             else:
@@ -247,10 +256,10 @@ class App:
 
             ocr_dict = ocr_model.run_ocr(prompt, self._images[image_name], input_json.parameters)
 
-            if len(self._ocr_model_cache) > 2:
+            if len(self._ocr_model_cache) > self._cache["max_number_models"]:
                 self._ocr_model_cache.popitem(last=False)
 
-            if len(self._prompt_cache) > 10:
+            if len(self._prompt_cache) > self._cache["max_number_prompts"]:
                 self._prompt_cache.popitem(last=False)
 
             subprocess.call(f"rm {self._images[image_name]}", shell=True)

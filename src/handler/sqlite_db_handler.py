@@ -5,7 +5,7 @@ import uuid
 import sys
 sys.path.append("../..")
 
-from typing import List
+from typing import List, Union
 from loguru import logger
 from src.handler.db_handler import DBHandler
 
@@ -75,7 +75,7 @@ class SqliteDBHandler(DBHandler):
                 self.close(con)
         return True
 
-    def get_config(self, config_name: str) -> dict:
+    def get_config(self, config_name: str) -> Union[dict, None]:
         con = self.connect()
         cursor = con.cursor()
         try:
@@ -84,13 +84,13 @@ class SqliteDBHandler(DBHandler):
             result = cursor.fetchone()
         except sqlite3.OperationalError as e:
             logger.error(f"OperationalError aufgetreten: {e}")
-            return {}
+            return None
         except sqlite3.DatabaseError as e:
             logger.error(f"DatabaseError aufgetreten: {e}")
-            return {}
+            return None
         except Exception as e:
             logger.error(f"Unerwarteter Fehler aufgetreten: {e}")
-            return {}
+            return None
         finally:
             if cursor:
                 cursor.close()

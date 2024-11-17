@@ -1,10 +1,11 @@
 import subprocess, uvicorn, os, argparse, glob, importlib, yaml
+import numpy as np
 
 from collections import OrderedDict
 from huggingface_hub import hf_hub_download, snapshot_download
 from loguru import logger
 from fastapi import FastAPI, HTTPException, Body, UploadFile, File, Form
-from typing import List, Annotated
+from typing import List, Annotated, Callable
 
 from src.ocr_modelling import OcrModelling
 from src.handler.sqlite_db_handler import SqliteDBHandler
@@ -48,7 +49,8 @@ class App:
 
         self._llm_model_name = llm_config["model_name"]
         self._download_model(llm_config["config_dict"])
-        self._ocr_model_cache[self._llm_model_name] = self._instantiate_model(llm_config["config_dict"])
+
+        self._llm_model = self._instantiate_model(llm_config["config_dict"])
 
         self._configure_routes()
 
@@ -157,13 +159,14 @@ class App:
                     model_config.config_dict["openai_api_key"] = openai_api_key
                 else:
                     self._download_model(model_config.config_dict)
-            except Exception as e:
-                self._unmodified_model_db.delete_config(model_config.model_name)
-                logger.error(e)
-                RuntimeError("Something went wrong during the download.")
 
-            getattr(self._model_db, method)(model_config.config_dict, model_config.model_name)
-            logger.info(f"Finished {method} the model {model_config.model_name}.")
+                getattr(self._model_db, method)(model_config.config_dict, model_config.model_name)
+                logger.info(f"Finished {method} the model {model_config.model_name}.")
+            except Exception as e:
+                config_deleted_unmodified = self._unmodified_model_db.delete_config(model_config.model_name)
+                logger.error(f"{e} - Config {'was' if config_deleted_unmodified else 'was not'} deleted again.")
+                RuntimeError("Something went wrong during the download or saving the config file.")
+                return False
 
             return True
 
@@ -178,14 +181,35 @@ class App:
             """
             for config_name in config_names:
                 config = self._model_db.get_config(config_name)
-                if config["model_wrapper"] != "open_ai":
-                    subprocess.call(f"rm {config['model_path']}", shell=True)
-                    subprocess.call(f"rm {config['clip_model_path']}", shell=True)
-                self._model_db.delete_config(config_name)
-                self._unmodified_model_db.delete_config(config_name)
-                self._ocr_model_cache.pop(config_name, None)
+                config_del = self._model_db.delete_config(config_name)
+                config_del_unmodified = self._unmodified_model_db.delete_config(config_name)
+                config_cache = self._ocr_model_cache.pop(config_name, None)
 
-                logger.info(f"Deleted model {config_name}.")
+                if not config_del:
+                    self._unmodified_model_db.add_config(config, config_name)
+                    self._ocr_model_cache[config_name] = config
+                    logger.error(f"Model config {config_name} could not be deleted from model_db.")
+                    return False
+                if not config_del_unmodified:
+                    self._model_db.add_config(config, config_name)
+                    self._ocr_model_cache[config_name] = config
+                    logger.error(f"Model config {config_name} could not be deleted from unmodified_model_db.")
+                    return False
+                if not config_cache:
+                    self._unmodified_model_db.add_config(config, config_name)
+                    self._model_db.add_config(config, config_name)
+                    logger.error(f"Model config {config_name} could not be deleted from cache.")
+                    return False
+
+                try:
+                    if config["model_wrapper"] != "open_ai":
+                        subprocess.call(f"rm {config['model_path']}", shell=True)
+                        subprocess.call(f"rm {config['clip_model_path']}", shell=True)
+
+                    logger.info(f"Successfully deleted model {config_name}.")
+                except Exception as e:
+                    logger.error(f"Model config {config_name} could not be deleted from disk.")
+                    return False
 
             return True
 
@@ -234,7 +258,6 @@ class App:
                                    ) -> dict:
             config_dict = self._model_db.get_config(input_json.model_name)
             model = self._ocr_model_cache.get(input_json.model_name, None)
-            llm_model = self._ocr_model_cache.get(self._llm_model_name)
             prompt = self._prompt_cache.get(input_json.prompt, None)
 
             if model is None:
@@ -245,7 +268,7 @@ class App:
                 logger.info(f"Retrieved {input_json.model_name} from cache.")
 
             # instantiate ocr model
-            ocr_model = OcrModelling(model, llm_model, self._prompts)
+            ocr_model = OcrModelling(model, self._llm_model, self._prompts)
 
             if prompt is None:
                 prompt = ocr_model.enhance_prompt(input_json.prompt, self._predict_params)

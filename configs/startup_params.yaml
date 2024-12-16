@@ -1,0 +1,32 @@
+llm_configs:
+  model_name: "gemma-2-9b-it-gguf"
+  config_dict:
+    model_wrapper: "llama_cpp"
+    repo_id: "bartowski/gemma-2-9b-it-GGUF"
+    file_name: "gemma-2-9b-it-Q4_K_M.gguf"
+    construct_params:
+      n_ctx: 2048
+      n_gpulayers: -1
+  predict_params:
+    temperature: 0
+cache:
+  max_number_models: 2
+  max_number_prompts: 10
+prompts:
+  enhance_prompt: |
+    Extrahiere alle Namen von Messgrößen aus dem folgenden Text.
+    Gib das Ergebnis im json-Format zurück {{"namen": ["liste von namen"]}}.
+
+    Input: "Lese den Zählerstand des abgebildeten Drehstromzählers ab."
+    Output: {{"namen": ["zählerstand"]}}
+
+    Input: "{input}"
+    Output:
+  template: |
+    {prompt}
+
+    Gib das Ergebnis als JSON-Ausdruck in folgenden Format wider:
+    {json_ausdruck}.
+    Bevor du das Ergebnis ausgibst, stelle sicher, dass der Wert korrekt ist und vollständig erfasst wird.
+
+

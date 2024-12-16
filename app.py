@@ -1,10 +1,11 @@
-import subprocess, uvicorn, os, argparse, glob
+import subprocess, uvicorn, os, argparse, glob, importlib, yaml
+import numpy as np
 
 from collections import OrderedDict
 from huggingface_hub import hf_hub_download, snapshot_download
 from loguru import logger
 from fastapi import FastAPI, HTTPException, Body, UploadFile, File, Form
-from typing import List, Annotated
+from typing import List, Annotated, Callable
 
 from src.ocr_modelling import OcrModelling
 from src.handler.sqlite_db_handler import SqliteDBHandler
@@ -33,12 +34,47 @@ class App:
         self._model_db = SqliteDBHandler("config_models")
         self._unmodified_model_db = SqliteDBHandler("unmodified_config_models")
 
-        #caching
+        # caching
         self._ocr_model_cache = OrderedDict()
         self._prompt_cache = OrderedDict()
         self._images = OrderedDict()
 
+        config = self.load_yml("configs/startup_params.yaml")
+        self._cache = config["cache"]
+        self._prompts = config["prompts"]
+
+        # instantiate LLM for prompt optimisation
+        llm_config = config["llm_configs"]
+        self._predict_params = llm_config["predict_params"]
+
+        self._llm_model_name = llm_config["model_name"]
+        self._download_model(llm_config["config_dict"])
+
+        self._llm_model = self._instantiate_model(llm_config["config_dict"])
+
         self._configure_routes()
+
+    @staticmethod
+    def load_yml(configfile: str) -> dict:
+        """
+        Imports a YAML Configuration file
+        :param configfile: Path to the YAML config file.
+        :return: A dictionary containing the configuration data.
+        """
+        with open(configfile, "r") as b:
+            try:
+                data = yaml.safe_load(b)
+            except yaml.YAMLError as err:
+                logger.error(err)
+        return data
+
+    @staticmethod
+    def _instantiate_model(config_dict: dict) -> object:
+        module_name = config_dict.get("model_wrapper")
+        class_name = "".join(x.capitalize() for x in module_name.split("_"))
+        module = importlib.import_module(f"src.model_wrapper.{module_name}")
+
+        return getattr(module, class_name)(config_dict)
 
     @staticmethod
     def _download_model(config_dict: dict) -> None:
@@ -124,13 +160,13 @@ class App:
                 else:
                     self._download_model(model_config.config_dict)
 
+                getattr(self._model_db, method)(model_config.config_dict, model_config.model_name)
+                logger.info(f"Finished {method} the model {model_config.model_name}.")
             except Exception as e:
-                self._unmodified_model_db.delete_config(model_config.model_name)
-                logger.error(e)
-                RuntimeError("Something went wrong during the download.")
-
-            getattr(self._model_db, method)(model_config.config_dict, model_config.model_name)
-            logger.info(f"Finished {method} the model {model_config.model_name}.")
+                config_deleted_unmodified = self._unmodified_model_db.delete_config(model_config.model_name)
+                logger.error(f"{e} - Config {'was' if config_deleted_unmodified else 'was not'} deleted again.")
+                RuntimeError("Something went wrong during the download or saving the config file.")
+                return False
 
             return True
 
@@ -145,14 +181,35 @@ class App:
             """
             for config_name in config_names:
                 config = self._model_db.get_config(config_name)
-                if config["model_wrapper"] != "open_ai":
-                    subprocess.call(f"rm {config['model_path']}", shell=True)
-                    subprocess.call(f"rm {config['clip_model_path']}", shell=True)
-                self._model_db.delete_config(config_name)
-                self._unmodified_model_db.delete_config(config_name)
-                self._ocr_model_cache.pop(config_name, None)
+                config_del = self._model_db.delete_config(config_name)
+                config_del_unmodified = self._unmodified_model_db.delete_config(config_name)
+                config_cache = self._ocr_model_cache.pop(config_name, None)
 
-                logger.info(f"Deleted model {config_name}.")
+                if not config_del:
+                    self._unmodified_model_db.add_config(config, config_name)
+                    self._ocr_model_cache[config_name] = config
+                    logger.error(f"Model config {config_name} could not be deleted from model_db.")
+                    return False
+                if not config_del_unmodified:
+                    self._model_db.add_config(config, config_name)
+                    self._ocr_model_cache[config_name] = config
+                    logger.error(f"Model config {config_name} could not be deleted from unmodified_model_db.")
+                    return False
+                if not config_cache:
+                    self._unmodified_model_db.add_config(config, config_name)
+                    self._model_db.add_config(config, config_name)
+                    logger.error(f"Model config {config_name} could not be deleted from cache.")
+                    return False
+
+                try:
+                    if config["model_wrapper"] != "open_ai":
+                        subprocess.call(f"rm {config['model_path']}", shell=True)
+                        subprocess.call(f"rm {config['clip_model_path']}", shell=True)
+
+                    logger.info(f"Successfully deleted model {config_name}.")
+                except Exception as e:
+                    logger.error(f"Model config {config_name} could not be deleted from disk.")
+                    return False
 
             return True
 
@@ -200,18 +257,21 @@ class App:
                                    image_name: str
                                    ) -> dict:
             config_dict = self._model_db.get_config(input_json.model_name)
-            ocr_model = self._ocr_model_cache.get(input_json.model_name, None)
+            model = self._ocr_model_cache.get(input_json.model_name, None)
             prompt = self._prompt_cache.get(input_json.prompt, None)
 
-            if ocr_model is None:
-                ocr_model = OcrModelling(config_dict)
-                self._ocr_model_cache[input_json.model_name] = ocr_model
+            if model is None:
+                model = self._instantiate_model(config_dict)
+                self._ocr_model_cache[input_json.model_name] = model
                 logger.info(f"Saved {input_json.model_name} in cache.")
             else:
                 logger.info(f"Retrieved {input_json.model_name} from cache.")
 
+            # instantiate ocr model
+            ocr_model = OcrModelling(model, self._llm_model, self._prompts)
+
             if prompt is None:
-                prompt = ocr_model.enhance_prompt(input_json.prompt)
+                prompt = ocr_model.enhance_prompt(input_json.prompt, self._predict_params)
                 self._prompt_cache[input_json.prompt] = prompt
                 logger.info(f"Saved prompt in cache.")
             else:
@@ -219,10 +279,10 @@ class App:
 
             ocr_dict = ocr_model.run_ocr(prompt, self._images[image_name], input_json.parameters)
 
-            if len(self._ocr_model_cache) > 2:
+            if len(self._ocr_model_cache) > self._cache["max_number_models"]:
                 self._ocr_model_cache.popitem(last=False)
 
-            if len(self._prompt_cache) > 10:
+            if len(self._prompt_cache) > self._cache["max_number_prompts"]:
                 self._prompt_cache.popitem(last=False)
 
             subprocess.call(f"rm {self._images[image_name]}", shell=True)

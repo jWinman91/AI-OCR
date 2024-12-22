@@ -6,7 +6,7 @@ from transformers import (
 from typing import Optional
 
 
-class Transformers:
+class TransformersCasualLLM:
     def __init__(self, model_name: str, **kwargs) -> None:
         """
         Wrapper to load and use LLMs via vLLM for prediction.

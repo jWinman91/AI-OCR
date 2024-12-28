@@ -84,16 +84,18 @@ class App:
         :return:
         """
         repo_id = config_dict.pop("repo_id")
+        access_token = config_dict.pop("access_token", None)
         file_name = config_dict.pop("file_name", None)
         clip_model_name = config_dict.pop("clip_model_name", None)
 
         subprocess.call(f"mkdir -p models/{repo_id}", shell=True)
         if file_name is None:
-            snapshot_download(repo_id=repo_id, local_dir=f"models/{repo_id}")
+            snapshot_download(repo_id=repo_id, local_dir=f"models/{repo_id}", token=access_token)
+            config_dict["model_path"] = f"models/{repo_id}"
         else:
-            hf_hub_download(repo_id=repo_id, filename=file_name, local_dir=f"models/{repo_id}")
+            hf_hub_download(repo_id=repo_id, filename=file_name, local_dir=f"models/{repo_id}", token=access_token)
+            config_dict["model_path"] = f"models/{repo_id}/{file_name}"
 
-        config_dict["model_path"] = f"models/{repo_id}/{file_name}"
         if clip_model_name is not None:
             config_dict["clip_model_path"] = f"models/{repo_id}/{clip_model_name}"
             hf_hub_download(repo_id=repo_id, filename=clip_model_name, local_dir=f"models/{repo_id}")

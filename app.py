@@ -170,8 +170,7 @@ class App:
             except Exception as e:
                 config_deleted_unmodified = self._unmodified_model_db.delete_config(model_config.model_name)
                 logger.error(f"{e} - Config {'was' if config_deleted_unmodified else 'was not'} deleted again.")
-                RuntimeError("Something went wrong during the download or saving the config file.")
-                return False
+                raise RuntimeError("Something went wrong during the download or saving the config file.")
 
             return True
 

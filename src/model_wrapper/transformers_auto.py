@@ -12,8 +12,7 @@ class TransformersAuto:
         construct_params["trust_remote_code"] = True
 
         self._model = AutoModel.from_pretrained(config_dict.get("model_path"), **construct_params)
-        print(self._model)
-        #self._model = self._model.eval().cuda()
+        self._model = self._model.eval().cuda()
         self._tokenizer = AutoTokenizer.from_pretrained(config_dict.get("model_path"), trust_remote_code=True)
 
     def predict(self, text: str, image: object, parameters: Optional[dict] = None) -> str:

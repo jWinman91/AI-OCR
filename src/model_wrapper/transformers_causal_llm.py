@@ -1,3 +1,4 @@
+import json
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
@@ -31,6 +32,6 @@ class TransformersCasualLLM:
             inputs = self._tokenizer(messages, return_tensors="pt").to("cuda")
 
         output = self._model.generate(**inputs, **parameters)
-        return self._tokenizer.decode(output[0][len(inputs[0]):], skip_special_tokens=True).replace("```json",
+        return json.loads(self._tokenizer.decode(output[0][len(inputs[0]):], skip_special_tokens=True).replace("```json",
                                                                                                     "").encode(
-            "utf-8").decode().replace("```", "")
+            "utf-8").decode().replace("```", ""))

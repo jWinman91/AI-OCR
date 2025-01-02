@@ -1,4 +1,4 @@
-import torch
+import json, torch
 
 from transformers import AutoModel, AutoTokenizer
 from typing import Optional
@@ -21,9 +21,9 @@ class TransformersAuto:
             "content": [image, text]
         }]
 
-        return self._model.chat(
+        return json.loads(self._model.chat(
             image=None,
             msgs=messages,
             tokenizer=self._tokenizer,
             **parameters
-        ).replace("```json","").encode("utf-8").decode().replace("```", "")
+        ).replace("```json","").encode("utf-8").decode().replace("```", ""))

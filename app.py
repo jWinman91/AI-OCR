@@ -1,15 +1,15 @@
 import subprocess, uvicorn, os, argparse, glob, importlib, yaml
-import numpy as np
 
 from collections import OrderedDict
 from huggingface_hub import hf_hub_download, snapshot_download
 from loguru import logger
 from fastapi import FastAPI, HTTPException, Body, UploadFile, File, Form
-from typing import List, Annotated, Callable
+from typing import List, Annotated, Union
 
 from src.ocr_modelling import OcrModelling
+from src.plot_modelling import PlotModelling
 from src.handler.sqlite_db_handler import SqliteDBHandler
-from src.utils.api_models import ConfigModel, Prompt
+from src.utils.api_models import ConfigModel, Prompt, MetaData
 
 
 DESCRIPTION = """
@@ -48,7 +48,8 @@ class App:
         self._predict_params = llm_config["predict_params"]
 
         self._llm_model_name = llm_config["model_name"]
-        self._download_model(llm_config["config_dict"])
+        if llm_config["config_dict"]["model_wrapper"] != "open_ai":
+            self._download_model(llm_config["config_dict"])
 
         self._llm_model = self._instantiate_model(llm_config["config_dict"])
 
@@ -293,6 +294,87 @@ class App:
             _ = self._images.pop(image_name)
 
             return ocr_dict
+
+        @self._app.post("/plot_suggestions")
+        async def plot_suggestions(input_json: Annotated[MetaData, Body(
+            examples=[{
+                "meta_data_df": {
+                    "dtypes": {"col_0": "int", "col_1": "float", "col_2": "string"},
+                    "describe": {
+                        "col_0": {"mean": 0, "std": 0, "min": 0, "max": 0},
+                        "col_1": {"mean": 0, "std": 0, "min": 0, "max": 0},
+                        "col_2": {"mean": 0, "std": 0, "min": 0, "max": 0}
+                    }
+                },
+                "parameters": {
+                    "temperature": 0,
+                    "top_p": 0.1
+                }
+            }]
+        )]) -> dict[str, List[str]]:
+            """
+            Returns suggestions for possible plots based on the metadata of the dataframe.
+
+            :param input_json: dictionary containing the metadata of the dataframe and additional LLM parameters
+            :return: dictionary containing a list of suggestions
+            """
+            # instantiate plot modelling class
+            plot_modelling = PlotModelling(None, self._llm_model, self._prompts)
+            logger.info("Suggesting prompts.")
+            return {
+                "list_of_suggestions": plot_modelling.suggest_prompt(input_json.meta_data_df, input_json.parameters)
+            }
+
+        @self._app.post("/plot_code")
+        async def plot_code(input_json: Annotated[MetaData, Body(
+            examples=[{
+                "meta_data_df": {
+                    "dtypes": {"col_0": "int", "col_1": "float", "col_2": "string"},
+                    "describe": {
+                        "col_0": {"mean": 0, "std": 0, "min": 0, "max": 0},
+                        "col_1": {"mean": 0, "std": 0, "min": 0, "max": 0},
+                        "col_2": {"mean": 0, "std": 0, "min": 0, "max": 0}
+                    }
+                },
+                "model_name": "open_ai",
+                "prompt_suggestion": "plot the data",
+                "parameters": {
+                    "temperature": 0,
+                    "top_p": 0.1
+                }
+            }]
+        )]) -> dict[str, Union[str, bool | None]]:
+            """
+            Creates code from a GenAI model to plot the data based on a plot suggestion
+            and the metadata of the dataframe.
+
+            :param input_json: dictionary containing the metadata of the dataframe, the model name, the prompt suggestion
+            :return: dictionary containing the code to plot the data
+            """
+            # instantiate model
+            config_dict = self._model_db.get_config(input_json.model_name)
+            model = self._ocr_model_cache.get(input_json.model_name, None)
+
+            if model is None:
+                model = self._instantiate_model(config_dict)
+                self._ocr_model_cache[input_json.model_name] = model
+                logger.info(f"Saved {input_json.model_name} in cache.")
+            else:
+                logger.info(f"Retrieved {input_json.model_name} from cache.")
+
+            plot_modelling = PlotModelling(model, self._llm_model, self._prompts)
+            if prompt_check := plot_modelling.check("prompt", input_json.prompt_suggestion, input_json.parameters):
+                code = plot_modelling.plot_prompt(input_json.meta_data_df, input_json.prompt_suggestion,
+                                                  input_json.parameters)
+
+                logger.info(f"Created code: {code}")
+
+                if code_check := plot_modelling.check("code", code, input_json.parameters):
+                    return {"code": code, "prompt_check": prompt_check, "code_check": code_check}
+            else:
+                code_check = None
+
+            return {"code": False, "prompt_check": prompt_check, "code_check": code_check}
 
     def run(self) -> None:
         """

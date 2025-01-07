@@ -11,7 +11,6 @@ class OcrModelling:
         self._llm_model = llm_model
         self.ENHANCE_PROMPT_PROMPT = prompts["enhance_prompt"]
         self.PROMPT_TEMPLATE = prompts["template"]
-        print(self.PROMPT_TEMPLATE)
 
     # Function to encode the image
     @staticmethod

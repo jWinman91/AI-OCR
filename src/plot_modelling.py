@@ -25,7 +25,6 @@ class PlotModelling:
         for col_name, value in describe_dict.items():
             describe_text += f"- {col_name}:\n"
             for stat_property, stat_value in value.items():
-                print(type(stat_value))
                 if type(stat_value) is str or (stat_value is not None and not np.isnan(stat_value)):
                     describe_text += f"\t- {stat_property}: {stat_value}\n"
 

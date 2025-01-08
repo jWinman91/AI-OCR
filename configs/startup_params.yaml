@@ -14,10 +14,12 @@ cache:
   max_number_prompts: 10
 prompts:
   enhance_prompt: |
-    Extrahiere alle Namen von Messgrößen aus dem folgenden Text.
+    Ich habe ein Prompt, aus dem ich Informationen extrahieren möchte.
+    
+    Extrahiere aus dem folgenden Prompt die Namen der Messwerte, die laut dem Prompt ausgelesen/erkannt werden soll.
     Gib das Ergebnis im json-Format zurück {{"namen": ["liste von namen"]}}.
 
-    Input: "Lese den Zählerstand des abgebildeten Drehstromzählers ab."
+    Input: "Lese den Zählerstand des abgebildeten Drehstromzählers ab. Der Zählerstand besteht aus sechs Ziffern."
     Output: {{"namen": ["zählerstand"]}}
 
     Input: "{input}"
@@ -28,5 +30,88 @@ prompts:
     Gib das Ergebnis als JSON-Ausdruck in folgenden Format wider:
     {json_ausdruck}.
     Bevor du das Ergebnis ausgibst, stelle sicher, dass der Wert korrekt ist und vollständig erfasst wird.
+  plot_suggestion: |
+    Ich habe einen Pandas DataFrame mit den folgenden Eigenschaften:
+    - Spaltennamen: {column_names}
+    - Datentypen der Spalten: {dtypes}
+    - Statistische Zusammenfassung des DataFrames (aus df.describe()):
+      {statistical_description}
+    
+    Bitte schlage mir maximal drei sinnvolle Plot-Typen vor, um die Daten zu visualisieren.
+    Berücksichtige dabei die Datentypen der Spalten, die statistische Zusammenfassung und typische Analysemethode.
+    Deine Vorschläge sollten als Beispiel folgende Aspekte abdecken:
+    1. Visualisierung der Verteilung der Daten
+    2. Beziehung zwischen zwei oder mehr Variablen (Scatterplots, Heatmaps, etc.)
+    3. Vergleich von Gruppen (Boxplots, Histogramme, etc.)
+    4. Zeitreihenanalyse (falls Datumsdaten/Timestamps enthalten sind)
+    
+    Gib die Vorschläge in einem kurzen Satz wieder, um die Daten optimal zu visualisieren.
+    Wenn dir weniger als drei Vorschläge einfallen, gib nur die vorhandenen Vorschläge zurück.
+    
+    Gib das Ergebnis als Liste in einem JSON-Ausdruck in folgenden Format wider (Beispiel):
+    {{
+      "suggestions": [
+          "Plotte die Verteilung der Spalte X",
+          "Plotte einen Scatterplot der Spalte X gegen die Spalte Y",
+          "Plotte die Spalte X als Zeitreihe. Verwende Spalte Y als Timestamps.",
+      ]
+    }}
+  plot_template: |
+    Ich habe folgende Informationen über ein Pandas DataFrame:
+    - Spaltennamen: {column_names}
+    - Datentypen der Spalten: {dtypes}
+    - Statistische Zusammenfassung des DataFrames (aus df.describe():
+      {statistical_description}
+    
+    Schreibe mir eine Funktion in python "plot(df)", die das Dataframe als Argument nimmt und Folgendes tut:
+    {plot_suggestion}
+    
+    Die Funktion sollte dabei auf folgendes achten:
+    1. Verwende nur matplotlib und/oder seaborn für die Visualisierung
+    2. Erstelle den Plot wie oben beschrieben mit figure() und axes()
+    3. Füge Titel, Achsenbeschriftungen und ggf. Legenden hinzu
+    4. Passe die Achsenbeschriftungen und -skalierungen an, um die Daten optimal darzustellen
+    5. Gebe die figure() und axes() Objekte zurück
+    
+    Gib den Code in einem json-Ausdruck in folgendem Format wider (Beispiel):
+    {{
+      "code": "def plot(df):\n    # dein code hier\n    return fig, ax",
+    }}
 
-
+  check: |
+    Ich habe folgende Beschreibung für einen Plot erhalten: {plot_suggestion}
+    
+    Bitte überprüfe, ob die Beschreibung:
+    1. valide ist: Bezieht sich die Beschreibung ausschließlich auf das Erstellen eines Plots
+    oder einer Berechnung?
+    2. sicher ist: Enthält die Beschreibung keine schädlichen Operationen wie das Löschen von Dateien,
+    das Ausführen von Systembefehlen oder den Zugriff auf nicht autorisierte Ressourcen?
+    
+    Gib das Ergebnis als Boolean in einem JSON-Ausdruck in folgendem Format wider:
+    {{
+      "result": true/false
+    }}
+    
+    true: Die Beschreibung ist valide und sicher.
+    false: Die Beschreibung ist nicht valide oder enthält unsichere Operationen.
+  check_code: |
+    Ich möchte überprüfen, ob der folgende Python-Code sicher ist
+    und ausschließlich zum Erstellen eines Plots verwendet wird.
+    
+    Der Code sollte:
+    - Nur auf Bibliotheken wie matplotlib, seaborn, pandas, numpy, oder ähnliche für Visualisierungen
+    und Berechnungen zugreifen.
+    - Keine schädlichen Operationen enthalten, wie das Löschen von Dateien, das Ausführen von Systembefehlen
+    oder den Zugriff auf nicht autorisierte Ressourcen.
+    - Nur Lesezugriffe auf Daten erlauben, die für den Plot notwendig sind.
+    
+    Hier der zu überprüfende Code:
+    {code}
+    
+    Gib dein Ergebnis als Boolean in einem JSON-Ausdruck in folgendem Format wider:
+    {{
+      "result": true/false
+    }}
+    
+    true: Der Code ist sicher und enthält keine schädlichen Operationen.
+    false: Der Code ist nicht sicher oder enthält schädliche Operationen.

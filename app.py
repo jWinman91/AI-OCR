@@ -1,9 +1,10 @@
 import subprocess, uvicorn, os, argparse, glob, importlib, yaml
 
 from collections import OrderedDict
+from fastapi import FastAPI, HTTPException, Body, UploadFile, File, Form
 from huggingface_hub import hf_hub_download, snapshot_download
 from loguru import logger
-from fastapi import FastAPI, HTTPException, Body, UploadFile, File, Form
+from pdf2image import convert_from_path
 from typing import List, Annotated, Union
 
 from src.ocr_modelling import OcrModelling
@@ -110,6 +111,11 @@ class App:
         with open(image_path, 'wb') as image:
             content = await image_file.read()
             image.write(content)
+
+        if image_path.endswith(".pdf"):
+            images = convert_from_path(image_path, 300)
+            for i, image in enumerate(images):
+                image.save(f"{image_path.split('.pdf')[0]}_{i}.png", "PNG")
 
         return image_path
 
@@ -291,6 +297,8 @@ class App:
                 self._prompt_cache.popitem(last=False)
 
             subprocess.call(f"rm {self._images[image_name]}", shell=True)
+            if self._images[image_name].endswith(".pdf"):
+                subprocess.call(f"rm {self._images[image_name].split('.pdf')[0]}*.png", shell=True)
             _ = self._images.pop(image_name)
 
             return ocr_dict

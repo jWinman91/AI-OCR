@@ -9,10 +9,9 @@ from typing import Optional
 class LlamaCpp:
     def __init__(self, config_dict: dict) -> None:
         """
+        Model wrapper for LlamaCpp (a wrapper to handle quantized models from huggingface).
 
-        :param model_path:
-        :param clip_model_path:
-        :param construct_params:
+        :param config_dict: dictionary containing the model path and other parameters
         """
         construct_params = config_dict.get("construct_params", {})
 
@@ -24,11 +23,12 @@ class LlamaCpp:
 
     def predict(self, text: str, images: Optional[list[object]] = None, parameters: Optional[dict] = None):
         """
+        Returns a response from the LLM.
 
-        :param text:
-        :param images:
-        :param parameters:
-        :return:
+        :param text: input text for the LLM
+        :param images: image for the LLM
+        :param parameters: parameters for the LLM
+        :return: response from the LLM
         """
         content_text = [{
             "type": "text",

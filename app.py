@@ -20,7 +20,8 @@ DESCRIPTION = """
 class App:
     def __init__(self, ip: str = "127.0.0.1", port: int = 8000, debug: bool = False) -> None:
         """
-        Builds the App Object for the Server Backend
+        Builds the App Object for the Server Backend.
+        This class is essentially the API for the AI-OCR project.
 
         :param ip: ip to serve
         :param port: port to serve
@@ -60,6 +61,7 @@ class App:
     def load_yml(configfile: str) -> dict:
         """
         Imports a YAML Configuration file
+
         :param configfile: Path to the YAML config file.
         :return: A dictionary containing the configuration data.
         """
@@ -72,6 +74,12 @@ class App:
 
     @staticmethod
     def _instantiate_model(config_dict: dict) -> object:
+        """
+        Instantiates a model object based on the config_dict
+
+        :param config_dict: parameters for instantiation
+        :return: instantiated model object
+        """
         module_name = config_dict.get("model_wrapper")
         class_name = "".join(x.capitalize() for x in module_name.split("_"))
         module = importlib.import_module(f"src.model_wrapper.{module_name}")
@@ -81,9 +89,10 @@ class App:
     @staticmethod
     def _download_model(config_dict: dict) -> None:
         """
+        Downloads a model from the Huggingface Hub or a snapshot of a given repository.
 
-        :param config_dict:
-        :return:
+        :param config_dict: dictionary containing the download configuration
+        :return: None
         """
         repo_id = config_dict.pop("repo_id")
         access_token = config_dict.pop("access_token", None)
@@ -106,6 +115,12 @@ class App:
 
     @staticmethod
     async def _save_image(image_file: UploadFile) -> str:
+        """
+        Saves an image file to the disk
+
+        :param image_file: File object of the image
+        :return: string of the path to the saved image
+        """
         subprocess.call("mkdir -p tmp", shell=True)
         image_path = f"tmp/{image_file.filename}"
         with open(image_path, 'wb') as image:
@@ -128,6 +143,11 @@ class App:
 
         @self._app.get("/get_all_model_wrapper")
         async def get_all_model_wrapper() -> List[str]:
+            """
+            Returns all model wrappers that are currently stored in the model_wrapper directory.
+
+            :return: list of model wrappers
+            """
             model_wrapper_paths = glob.glob("src/model_wrapper/*.py")
             return list(map(lambda path: path.split("/")[-1].split(".")[0], model_wrapper_paths))
 
@@ -149,9 +169,9 @@ class App:
         )]
                                ) -> bool:
             """
-
-            :param model_config:
-            :return:
+            Adds a configuration of a model to the config db.
+            :param model_config: dictionary containing the model name and the configuration
+            :return: True if successfully added
             """
             all_config_names = self._unmodified_model_db.get_all_config_names()
             method = "add_config" if model_config.model_name not in all_config_names else "update_config"
@@ -185,7 +205,7 @@ class App:
         async def delete_models(config_names: List[str]) -> bool:
             """
             Deletes a configuration of a model from the couchdb.
-            If the config doesnt exist, an error will be raised.
+            If the config doesn't exist, an error will be raised.
 
             :param config_names: List of names of model configs that will be deleted \n
             :return: True if successfully deleted
@@ -242,9 +262,10 @@ class App:
         @self._app.post("/upload_images")
         async def upload_images(images: List[UploadFile]) -> bool:
             """
+            Uploads images to the server and saves them in the tmp folder.
 
-            :param images:
-            :return:
+            :param images: List of images to be uploaded
+            :return: True if successfully uploaded
             """
             subprocess.call("rm -r tmp", shell=True)
 
@@ -267,6 +288,13 @@ class App:
         )],
                                    image_name: str
                                    ) -> dict:
+            """
+            Recognizes values (described in prompt) from an image using an OCR model.
+
+            :param input_json: dictionary containing the prompt, the model name and additional parameters
+            :param image_name: name of image from which to recognize values
+            :return: dictionary containing the recognized values
+            """
             config_dict = self._model_db.get_config(input_json.model_name)
             model = self._ocr_model_cache.get(input_json.model_name, None)
             prompt = self._prompt_cache.get(input_json.prompt, None)

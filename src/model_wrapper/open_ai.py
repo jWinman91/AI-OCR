@@ -8,18 +8,20 @@ from typing import Optional
 class OpenAi:
     def __init__(self, config_dict: dict):
         """
+        Wrapper to load and use OpenAI API for prediction.
 
-        :param config_dict:
+        :param config_dict: dictionary with model name and OpenAI API key
         """
         self._client = OpenAI(api_key=config_dict["openai_api_key"])
         self._model_name = config_dict["model_name"]
 
     def predict(self, text: str, images: Optional[list[object]] = None, parameters: Optional[dict] = None):
         """
+        Returns a response from the LLM.
 
-        :param text:
-        :param images:
-        :param parameters:
+        :param text: input text for the LLM
+        :param images: image from which to extract data for the LLM
+        :param parameters: parameters for the LLM
         :return:
         """
         content_text = [{

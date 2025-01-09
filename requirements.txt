@@ -22,6 +22,7 @@ MarkupSafe==2.1.5
 numpy==1.24.1
 openai==1.43.0
 packaging==24.1
+pdf2image==1.17.0
 pillow==10.4.0
 pydantic==2.8.2
 pydantic_core==2.20.1

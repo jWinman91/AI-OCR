@@ -20,14 +20,14 @@ class TransformersCasualLLM:
         self._tokenizer = AutoTokenizer.from_pretrained(config_dict.get("model_path"), use_fast=True)
         self._processor = AutoProcessor.from_pretrained(config_dict.get("model_path"), trust_remote_code=True)
 
-    def predict(self, text: str, image: Optional[object] = None, parameters: Optional[dict] = None) -> str:
+    def predict(self, text: str, images: Optional[list[object]] = None, parameters: Optional[dict] = None) -> str:
         messages = [{
             "role": "user",
             "content": text
         }]
-        if image is not None:
+        if images is not None:
             prompt = self._processor.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-            inputs = self._processor(prompt, [image], return_tensors="pt").to("cuda")
+            inputs = self._processor(prompt, images, return_tensors="pt").to("cuda")
         else:
             inputs = self._tokenizer(messages, return_tensors="pt").to("cuda")
 

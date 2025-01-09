@@ -22,37 +22,34 @@ class LlamaCpp:
 
         self._model = Llama(model_path=config_dict.get("model_path"), **construct_params)
 
-    def predict(self, text: str, image: Optional[object] = None, parameters: Optional[dict] = None):
+    def predict(self, text: str, images: Optional[list[object]] = None, parameters: Optional[dict] = None):
         """
 
         :param text:
-        :param image:
+        :param images:
         :param parameters:
         :return:
         """
-        content_text = {
+        content_text = [{
             "type": "text",
             "text": text
-        }
+        }]
 
-        if image is not None:
-            content_image = {
+        if images is not None:
+            content_images = [{
                 "type": "image_url",
                 "image_url": {
                     "url": f"data:image/jpeg;base64,{image}"
                 }
-            }
+            } for image in images]
         else:
-            content_image = None
+            content_images = None
 
         t0 = time.time()
         llm_response = self._model.create_chat_completion(
             messages=[{
                 "role": "user",
-                "content": [content_text] if content_image is None else [
-                    content_text,
-                    content_image
-                ]
+                "content": content_text if content_images is None else content_text + content_images
             }],
             response_format={"type": "json_object"},
             **parameters

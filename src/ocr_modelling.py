@@ -1,5 +1,6 @@
 import base64
 import datetime
+import glob
 
 from PIL import Image
 from loguru import logger
@@ -28,15 +29,20 @@ class OcrModelling:
         return self.PROMPT_TEMPLATE.format(prompt=prompt, json_ausdruck=json_ausdruck)
 
     def run_ocr(self, prompt: str, image_path: str, parameters: dict) -> dict:
-        image = self._encode_image(image_path)
+        if image_path.endswith(".pdf"):
+            image_paths = glob.glob(image_path.split(".pdf")[0] + "*.png")
+            images = [self._encode_image(image) for image in image_paths]
+        else:
+            images = [self._encode_image(image_path)]
 
-        ocr_dict = self._model.predict(prompt, image=image, parameters=parameters)
+        ocr_dict = self._model.predict(prompt, images=images, parameters=parameters)
         ocr_dict["image_name"] = image_path.split("/")[1]
         logger.info(ocr_dict)
 
-        exif = Image.open(image_path)._getexif()
-        if exif is not None and len(exif) > 36867:
-            ocr_dict["creation_date"] = datetime.datetime.strptime(exif[36867], "%Y:%m:%d %H:%M:%S")
+        if not image_path.endswith(".pdf"):
+            exif = Image.open(image_path)._getexif()
+            if exif is not None and len(exif) > 36867:
+                ocr_dict["creation_date"] = datetime.datetime.strptime(exif[36867], "%Y:%m:%d %H:%M:%S")
 
         return ocr_dict
 

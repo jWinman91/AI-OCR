@@ -6,6 +6,13 @@ from typing import Literal
 
 class PlotModelling:
     def __init__(self, model: object, llm_model: object, prompts: dict) -> None:
+        """
+        Class to generate python code for plotting a DataFrame with the help of an LLM
+
+        :param model: object of the model for the code generation
+        :param llm_model: object of the LLM model for prompt generation
+        :param prompts: dictionary with prompts for the LLM model
+        """
         self._model = model
         self._llm_model = llm_model
         self._suggestion_prompt = prompts["plot_suggestion"]

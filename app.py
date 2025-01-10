@@ -226,11 +226,6 @@ class App:
                     self._ocr_model_cache[config_name] = config
                     logger.error(f"Model config {config_name} could not be deleted from unmodified_model_db.")
                     return False
-                if not config_cache:
-                    self._unmodified_model_db.add_config(config, config_name)
-                    self._model_db.add_config(config, config_name)
-                    logger.error(f"Model config {config_name} could not be deleted from cache.")
-                    return False
 
                 try:
                     if config["model_wrapper"] != "open_ai":

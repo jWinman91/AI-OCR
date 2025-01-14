@@ -6,7 +6,7 @@ llm_configs:
     file_name: "gemma-2-9b-it-Q4_K_M.gguf"
     construct_params:
       n_ctx: 2048
-      n_gpulayers: -1
+      n_gpu_layers: -1
   predict_params:
     temperature: 0
 cache:

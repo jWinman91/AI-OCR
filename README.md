@@ -24,9 +24,9 @@ cd ai-ocr
 ```bash
 pip install -r requirements.txt
 ```
-3. Pull and run the coachdb docker file with the following command:
+On Linux or MacOS you can also simply run the install.sh script:
 ```bash
-docker run -e COUCHDB_USER=admin -e COUCHDB_PASSWORD=JensIsCool -p 5984:5984 -d --name config_db couchdb:latest
+chmod +x install.sh && ./install.sh
 ```
 3. Clone the frontend repository
 ```bash
@@ -44,11 +44,10 @@ You can then start the backend by running:
 ```bash
 python app.py $IP_ADDRESS
 ```
-Make sure that the docker container for the coachdb is running.
 
 Since, the backend uses fastapi, you could now try it out via the fastapi docs by going to ```$IP_ADDRESS:5000/docs```.
 
-But you can also start the frontend now by running:
+But you can also start the frontend now by running
 ``` bash
 chmod +x start_up.sh
 ./start_up.sh
@@ -63,7 +62,8 @@ Within the web application you'll then find two pages on the sidebar:
 
 ## Example
 
-
+Here is an example on how to use the streamlit frontend with ChatGPT configure as a model:
+[![Blutdruck-thumbnail](data/Blutdruck-thumbnail.jpg)](https://youtu.be/IHEpVTO-K3I)
 
 
 ## Acknowledgments

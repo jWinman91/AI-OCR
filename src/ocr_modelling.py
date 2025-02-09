@@ -69,7 +69,7 @@ class OcrModelling:
 
         if not image_path.endswith(".pdf"):
             exif = Image.open(image_path)._getexif()
-            if exif is not None and len(exif) > 36867:
+            if exif is not None and 36867 in list(exif.keys()):
                 ocr_dict["creation_date"] = datetime.datetime.strptime(exif[36867], "%Y:%m:%d %H:%M:%S")
 
         return ocr_dict

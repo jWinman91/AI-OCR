@@ -47,7 +47,7 @@ python app.py $IP_ADDRESS
 
 Since, the backend uses fastapi, you could now try it out via the fastapi docs by going to ```$IP_ADDRESS:5000/docs```.
 
-But you can also start the frontend now by running:
+But you can also start the frontend now by running
 ``` bash
 chmod +x start_up.sh
 ./start_up.sh

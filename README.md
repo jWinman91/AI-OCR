@@ -63,8 +63,7 @@ Within the web application you'll then find two pages on the sidebar:
 ## Example
 
 Here is an example on how to use the streamlit frontend with ChatGPT configure as a model:
-
-
+[![Blutdruck-thumbnail](data/Blutdruck-thumbnail.jpg)](https://youtu.be/IHEpVTO-K3I)
 
 
 ## Acknowledgments

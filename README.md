@@ -1,4 +1,4 @@
-# AI-Optical-Character-Recognition (AI-OCR): Extracting data from images
+# AI-Optical-Character-Recognition (AI-OCR): From Pixels to Plots
 
 During my undergrad and postgrad Physics labs, I often had to manually read measurements from instruments, jot them down on paper, transfer them to a spreadsheet, and then generate plots—an inefficient and tedious process. Since I work in GenAI now after leaving Academia, I realized: Wait a minute... this can be automated! AI-OCR does exactly that. Simply take pictures of your measurements (or upload PDFs containing standardized numerical data, like financial reports), specify what numbers to extract, and let the AI generate insightful plots.
 
